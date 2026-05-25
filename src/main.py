@@ -1,15 +1,19 @@
 ﻿"""fund-monitor 入口脚本。"""
 
-from data_loader import load_positions
 from calculator import build_snapshots, calculate_totals
+from data_loader import load_funds
 from mock_nav_provider import get_mock_nav_data
+from position_calculator import build_positions
 from real_nav_provider import get_real_nav_data
 from report_generator import generate_report_markdown, save_report
+from transaction_loader import load_transactions
 
 
 def main() -> None:
     """执行一次基金监控日报生成流程。"""
-    positions = load_positions("data/funds.csv")
+    funds = load_funds("data/funds.csv")
+    transactions = load_transactions("data/transactions.csv")
+    positions = build_positions(funds, transactions)
 
     # 优先尝试真实接口，失败则整体回退到模拟数据。
     try:

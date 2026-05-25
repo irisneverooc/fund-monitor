@@ -4,6 +4,15 @@ from dataclasses import dataclass
 
 
 @dataclass
+class FundMeta:
+    """表示基金基础信息。"""
+
+    code: str
+    name: str
+    fund_type: str
+
+
+@dataclass
 class FundPosition:
     """表示一条基金持仓记录。"""
 
@@ -12,6 +21,18 @@ class FundPosition:
     fund_type: str
     units: float
     cost_nav: float
+
+
+@dataclass
+class Transaction:
+    """表示一条交易流水。"""
+
+    date: str
+    code: str
+    action: str
+    amount: float
+    nav: float
+    fee: float
 
 
 @dataclass
