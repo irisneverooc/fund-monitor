@@ -23,6 +23,7 @@ class FundSnapshot:
     fund_type: str
     units: float
     cost_nav: float
+    nav_date: str
     previous_nav: float
     current_nav: float
     daily_change_rate: float

@@ -42,11 +42,37 @@ def _find_max_type(type_allocation: dict) -> Tuple[str, float]:
     return fund_type, type_allocation[fund_type]
 
 
+def _build_nav_date_summary(snapshots: List[FundSnapshot]) -> str:
+    """生成净值日期说明（单日或区间）。"""
+    nav_dates = sorted({item.nav_date for item in snapshots if item.nav_date})
+    if not nav_dates:
+        return "未知"
+
+    # 模拟数据或非标准日期场景：直接展示唯一集合。
+    if any(not date[:4].isdigit() for date in nav_dates):
+        return "、".join(nav_dates)
+
+    if len(nav_dates) == 1:
+        return nav_dates[0]
+
+    return f"{nav_dates[0]} 至 {nav_dates[-1]}"
+
+
 def generate_report_markdown(snapshots: List[FundSnapshot], totals: dict) -> str:
     """生成基金监控日报的 Markdown 文本。"""
     report_date = datetime.now().strftime("%Y-%m-%d")
+    data_source_note = totals.get("data_source_note", "当前净值为模拟数据")
+    data_source_label = totals.get("data_source_label", "模拟数据")
+    nav_date_summary = _build_nav_date_summary(snapshots)
+
     lines = [
-        f"# 基金监控日报（{report_date}）",
+        f"# 基金监控日报（生成日期：{report_date}）",
+        "",
+        "## 数据说明",
+        f"- 报告生成日期：{report_date}",
+        (f"- 净值数据日期：{nav_date_summary}" if "至" not in nav_date_summary else f"- 净值数据日期范围：{nav_date_summary}"),
+        f"- 数据来源：{data_source_label}",
+        "- 说明：QDII 等海外基金净值可能存在 1-2 个交易日延迟，请以基金平台最终展示为准。",
         "",
         "## 组合总览",
         f"- 总成本：{totals['total_cost']:.2f}",
@@ -56,19 +82,20 @@ def generate_report_markdown(snapshots: List[FundSnapshot], totals: dict) -> str
         "",
         "## 持仓明细",
         "",
-        "| 基金代码 | 基金名称 | 基金类型 | 持仓状态 | 持有份额 | 成本净值 | 昨日净值 | 当前净值 | 日涨跌幅 | 当前市值 | 持仓收益 | 收益率 | 持仓占比 |",
-        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| 基金代码 | 基金名称 | 基金类型 | 持仓状态 | 持有份额 | 净值日期 | 成本净值 | 昨日净值 | 当前净值 | 日涨跌幅 | 当前市值 | 持仓收益 | 收益率 | 持仓占比 |",
+        "|---|---|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
 
     for item in snapshots:
         position_status = "观察基金" if item.units == 0 else "持有中"
         lines.append(
-            "| {code} | {name} | {fund_type} | {position_status} | {units:.2f} | {cost_nav:.4f} | {previous_nav:.4f} | {current_nav:.4f} | {daily_change_rate:.2f}% | {market_value:.2f} | {profit:.2f} | {profit_rate:.2f}% | {weight:.2f}% |".format(
+            "| {code} | {name} | {fund_type} | {position_status} | {units:.2f} | {nav_date} | {cost_nav:.4f} | {previous_nav:.4f} | {current_nav:.4f} | {daily_change_rate:.2f}% | {market_value:.2f} | {profit:.2f} | {profit_rate:.2f}% | {weight:.2f}% |".format(
                 code=item.code,
                 name=item.name,
                 fund_type=item.fund_type,
                 position_status=position_status,
                 units=item.units,
+                nav_date=item.nav_date,
                 cost_nav=item.cost_nav,
                 previous_nav=item.previous_nav,
                 current_nav=item.current_nav,
@@ -131,7 +158,8 @@ def generate_report_markdown(snapshots: List[FundSnapshot], totals: dict) -> str
         [
             "",
             "## 说明",
-            "- 当前净值为模拟数据，后续可替换成真实基金接口。",
+            f"- {data_source_note}",
+            "- 真实接口可能存在数据延迟（QDII 基金尤为常见）。",
             "- 支持通过 data/funds.csv 自定义个人基金池（含观察基金）。",
             "- 本报告仅用于个人学习与记录，不构成投资建议。",
         ]

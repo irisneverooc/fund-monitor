@@ -1,18 +1,28 @@
 ﻿"""收益计算与配置分析逻辑。"""
 
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from models import FundPosition, FundSnapshot
-from mock_nav_provider import get_mock_nav_pair
+from mock_nav_provider import get_mock_nav_data
 
 
-def build_snapshots(positions: List[FundPosition]) -> List[FundSnapshot]:
+NavProvider = Callable[[str], dict]
+
+
+def build_snapshots(
+    positions: List[FundPosition],
+    nav_provider: NavProvider = get_mock_nav_data,
+) -> List[FundSnapshot]:
     """把持仓列表转换为含收益信息的快照列表。"""
     snapshots: List[FundSnapshot] = []
     total_market_value = 0.0
 
     for position in positions:
-        current_nav, previous_nav = get_mock_nav_pair(position.code)
+        nav_data = nav_provider(position.code)
+        current_nav = float(nav_data["current_nav"])
+        previous_nav = float(nav_data["previous_nav"])
+        nav_date = str(nav_data.get("nav_date", "未知"))
+
         cost_value = position.units * position.cost_nav
         market_value = position.units * current_nav
         profit = market_value - cost_value
@@ -27,6 +37,7 @@ def build_snapshots(positions: List[FundPosition]) -> List[FundSnapshot]:
             fund_type=position.fund_type,
             units=position.units,
             cost_nav=position.cost_nav,
+            nav_date=nav_date,
             previous_nav=previous_nav,
             current_nav=current_nav,
             daily_change_rate=daily_change_rate,
@@ -38,7 +49,6 @@ def build_snapshots(positions: List[FundPosition]) -> List[FundSnapshot]:
         snapshots.append(snapshot)
         total_market_value += market_value
 
-    # 第二次遍历，计算持仓占比。
     for snapshot in snapshots:
         snapshot.weight = (
             snapshot.market_value / total_market_value if total_market_value else 0.0

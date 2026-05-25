@@ -20,3 +20,20 @@ def get_mock_nav_pair(code: str, fallback_nav: float = 1.00) -> Tuple[float, flo
     if not nav_data:
         return fallback_nav, fallback_nav
     return nav_data["current_nav"], nav_data["previous_nav"]
+
+
+def get_mock_nav_data(code: str, fallback_nav: float = 1.00) -> dict:
+    """返回与真实接口一致结构的模拟净值数据。"""
+    current_nav, previous_nav = get_mock_nav_pair(code, fallback_nav=fallback_nav)
+    daily_change_rate = (
+        (current_nav - previous_nav) / previous_nav if previous_nav else 0.0
+    )
+
+    return {
+        "current_nav": current_nav,
+        "previous_nav": previous_nav,
+        "nav_date": "模拟数据",
+        "daily_growth_rate": daily_change_rate,
+        "subscribe_status": "未知",
+        "redeem_status": "未知",
+    }
