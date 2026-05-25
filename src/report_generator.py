@@ -8,12 +8,30 @@ from models import FundSnapshot
 
 
 def _build_observation_note(item: FundSnapshot) -> str:
-    """根据单只基金收益率生成观察提示。"""
+    """根据单只基金收益率与日涨跌幅生成观察提示。"""
+    if item.daily_change_rate > 0.02:
+        daily_note = "今日上涨明显"
+    elif item.daily_change_rate < -0.02:
+        daily_note = "今日下跌明显"
+    else:
+        daily_note = "日内波动正常"
+
+    if item.units == 0:
+        return f"{daily_note}。当前为观察基金（未持仓），用于跟踪走势。"
     if item.profit_rate > 0.05:
-        return "已有浮盈，可继续观察，避免冲动加仓。"
+        return f"{daily_note}。已有浮盈，可继续观察，避免冲动加仓。"
     if item.profit_rate < -0.05:
-        return "出现浮亏，可检查是否仍符合长期配置逻辑。"
-    return "波动正常，按计划观察。"
+        return f"{daily_note}。出现浮亏，可检查是否仍符合长期配置逻辑。"
+    return f"{daily_note}。波动正常，按计划观察。"
+
+
+def _build_trade_watch_note(item: FundSnapshot) -> str:
+    """根据持仓收益率生成交易观察提醒。"""
+    if item.profit_rate <= -0.15:
+        return "进入加仓观察区：当前相对成本跌幅较大，可结合长期配置计划、资金安排和基金基本面判断是否分批加仓。"
+    if item.profit_rate >= 0.20:
+        return "进入止盈/减仓观察区：当前已有较明显浮盈，可结合目标仓位和后续计划判断是否部分止盈或减仓。"
+    return "未触发加仓或减仓观察阈值，继续按计划观察。"
 
 
 def _find_max_type(type_allocation: dict) -> Tuple[str, float]:
@@ -38,19 +56,23 @@ def generate_report_markdown(snapshots: List[FundSnapshot], totals: dict) -> str
         "",
         "## 持仓明细",
         "",
-        "| 基金代码 | 基金名称 | 基金类型 | 持有份额 | 成本净值 | 当前净值 | 当前市值 | 持仓收益 | 收益率 | 持仓占比 |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| 基金代码 | 基金名称 | 基金类型 | 持仓状态 | 持有份额 | 成本净值 | 昨日净值 | 当前净值 | 日涨跌幅 | 当前市值 | 持仓收益 | 收益率 | 持仓占比 |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
 
     for item in snapshots:
+        position_status = "观察基金" if item.units == 0 else "持有中"
         lines.append(
-            "| {code} | {name} | {fund_type} | {units:.2f} | {cost_nav:.4f} | {current_nav:.4f} | {market_value:.2f} | {profit:.2f} | {profit_rate:.2f}% | {weight:.2f}% |".format(
+            "| {code} | {name} | {fund_type} | {position_status} | {units:.2f} | {cost_nav:.4f} | {previous_nav:.4f} | {current_nav:.4f} | {daily_change_rate:.2f}% | {market_value:.2f} | {profit:.2f} | {profit_rate:.2f}% | {weight:.2f}% |".format(
                 code=item.code,
                 name=item.name,
                 fund_type=item.fund_type,
+                position_status=position_status,
                 units=item.units,
                 cost_nav=item.cost_nav,
+                previous_nav=item.previous_nav,
                 current_nav=item.current_nav,
+                daily_change_rate=item.daily_change_rate * 100,
                 market_value=item.market_value,
                 profit=item.profit,
                 profit_rate=item.profit_rate * 100,
@@ -62,7 +84,14 @@ def generate_report_markdown(snapshots: List[FundSnapshot], totals: dict) -> str
     for item in snapshots:
         observe_note = _build_observation_note(item)
         lines.append(
-            f"- {item.name}（{item.code}）：当前收益率 {item.profit_rate * 100:.2f}%，持仓占比 {item.weight * 100:.2f}%。{observe_note}"
+            f"- {item.name}（{item.code}）：当前收益率 {item.profit_rate * 100:.2f}%，持仓占比 {item.weight * 100:.2f}%，日涨跌幅 {item.daily_change_rate * 100:.2f}%。{observe_note}"
+        )
+
+    lines.extend(["", "## 交易观察提醒"])
+    for item in snapshots:
+        trade_watch_note = _build_trade_watch_note(item)
+        lines.append(
+            f"- {item.name}（{item.code}）：当前收益率 {item.profit_rate * 100:.2f}%，{trade_watch_note}"
         )
 
     lines.extend(["", "## 配置结构"])
@@ -103,6 +132,7 @@ def generate_report_markdown(snapshots: List[FundSnapshot], totals: dict) -> str
             "",
             "## 说明",
             "- 当前净值为模拟数据，后续可替换成真实基金接口。",
+            "- 支持通过 data/funds.csv 自定义个人基金池（含观察基金）。",
             "- 本报告仅用于个人学习与记录，不构成投资建议。",
         ]
     )

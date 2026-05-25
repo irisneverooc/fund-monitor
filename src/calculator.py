@@ -3,7 +3,7 @@
 from typing import Dict, List
 
 from models import FundPosition, FundSnapshot
-from mock_nav_provider import get_mock_nav
+from mock_nav_provider import get_mock_nav_pair
 
 
 def build_snapshots(positions: List[FundPosition]) -> List[FundSnapshot]:
@@ -12,11 +12,14 @@ def build_snapshots(positions: List[FundPosition]) -> List[FundSnapshot]:
     total_market_value = 0.0
 
     for position in positions:
-        current_nav = get_mock_nav(position.code)
+        current_nav, previous_nav = get_mock_nav_pair(position.code)
         cost_value = position.units * position.cost_nav
         market_value = position.units * current_nav
         profit = market_value - cost_value
         profit_rate = (profit / cost_value) if cost_value else 0.0
+        daily_change_rate = (
+            (current_nav - previous_nav) / previous_nav if previous_nav else 0.0
+        )
 
         snapshot = FundSnapshot(
             code=position.code,
@@ -24,7 +27,9 @@ def build_snapshots(positions: List[FundPosition]) -> List[FundSnapshot]:
             fund_type=position.fund_type,
             units=position.units,
             cost_nav=position.cost_nav,
+            previous_nav=previous_nav,
             current_nav=current_nav,
+            daily_change_rate=daily_change_rate,
             market_value=market_value,
             profit=profit,
             profit_rate=profit_rate,
